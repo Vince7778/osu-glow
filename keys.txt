@@ -1,0 +1,2 @@
+ZC
+^^ Type in the key letters you are using for left and right here! Must be uppercase A-Z

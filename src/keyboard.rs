@@ -1,13 +1,18 @@
+use anyhow::Context;
 use wooting_analog_wrapper::ffi::wooting_analog_read_analog;
 use wooting_rgb::RgbKeyboard;
 
 use crate::{lights::{get_lights_from_side, FadingLight, LightSide}, ws::JudgementChange};
+
+const DEFAULT_COLOR: (u8, u8, u8) = (255, 255, 255);
 
 // how many updates it takes for the lights to fade out
 const FADE_RATE: f32 = 10.0;
 
 // distance for analog keys to be considered pressed
 const PRESS_THRESHOLD: f32 = 0.1;
+
+const KEY_PATH: &str = "keys.txt";
 
 #[derive(Debug, Clone, Copy)]
 pub enum PressedKey {
@@ -35,17 +40,26 @@ impl Keyboard {
         wooting_analog_wrapper::initialise().0?;
 
         wooting_analog_wrapper::set_keycode_mode(wooting_analog_wrapper::KeycodeType::VirtualKeyTranslate);
-        // refer to https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes for keycodes
-        let keys = (0x5A, 0x43);
+
+        // read keycodes from file
+        // too lazy to make a proper config file
+        let key_file = std::fs::read_to_string(KEY_PATH).context("Failed to read keys.txt")?;
+        let keys: Vec<u16> = key_file[..2].chars().map(|c| c as u16).collect();
+        if keys.len() != 2 {
+            return Err(anyhow::anyhow!("keys.txt must contain at least 2 characters"));
+        }
+        if !keys.iter().all(|k| char::from_u32(*k as u32).unwrap().is_ascii_uppercase()) {
+            return Err(anyhow::anyhow!("keys.txt must contain uppercase ascii characters"));
+        }
 
         Ok(Keyboard {
             rgb: RgbKeyboard,
-            keys,
+            keys: (keys[0], keys[1]),
             keys_pressed: (false, false),
             last_pressed: PressedKey::None,
             lights: (
-                FadingLight::new(LightSide::Left, (0, 0, 0), FADE_RATE),
-                FadingLight::new(LightSide::Right, (0, 0, 0), FADE_RATE),
+                FadingLight::new(LightSide::Left, DEFAULT_COLOR, FADE_RATE),
+                FadingLight::new(LightSide::Right, DEFAULT_COLOR, FADE_RATE),
             ),
         })
     }

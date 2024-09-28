@@ -22,6 +22,11 @@ impl AppState {
     }
 }
 
+fn delay_exit() {
+    println!("Press Enter to exit...");
+    std::io::stdin().read_line(&mut String::new()).unwrap();
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     println!("Hello, world!");
@@ -32,7 +37,11 @@ async fn main() -> Result<()> {
     }
 
     let mut ws_rx = ws::connect().await?;
-    let mut state = AppState::new()?;
+    let mut state = AppState::new().unwrap_or_else(|e| {
+        println!("Error: {}", e);
+        delay_exit();
+        std::process::exit(1);
+    });
 
     let mut signal = signal::windows::ctrl_c()?;
 
@@ -46,7 +55,8 @@ async fn main() -> Result<()> {
                     }
                     state.keyboard.update();
                 } else {
-                    println!("Websocket closed, exiting!");
+                    println!("Websocket closed!");
+                    delay_exit();
                     return Ok(());
                 }
             }
