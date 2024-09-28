@@ -3,6 +3,10 @@ use wooting_rgb::RgbKeyboard;
 
 use crate::{lights::{get_lights_from_side, FadingLight, LightSide}, ws::JudgementChange};
 
+// how many updates it takes for the lights to fade out
+const FADE_RATE: f32 = 10.0;
+
+// distance for analog keys to be considered pressed
 const PRESS_THRESHOLD: f32 = 0.1;
 
 #[derive(Debug, Clone, Copy)]
@@ -30,8 +34,8 @@ impl Keyboard {
         // Initialize analog SDK
         wooting_analog_wrapper::initialise().0?;
 
-        // TODO: query user for which keys to use
         wooting_analog_wrapper::set_keycode_mode(wooting_analog_wrapper::KeycodeType::VirtualKeyTranslate);
+        // refer to https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes for keycodes
         let keys = (0x5A, 0x43);
 
         Ok(Keyboard {
@@ -40,8 +44,8 @@ impl Keyboard {
             keys_pressed: (false, false),
             last_pressed: PressedKey::None,
             lights: (
-                FadingLight::new(LightSide::Left, (0, 0, 0), 20.0),
-                FadingLight::new(LightSide::Right, (0, 0, 0), 20.0),
+                FadingLight::new(LightSide::Left, (0, 0, 0), FADE_RATE),
+                FadingLight::new(LightSide::Right, (0, 0, 0), FADE_RATE),
             ),
         })
     }

@@ -4,18 +4,14 @@ const LIGHTS_POS: [(u8, u8); 14] = [(0, 2), (0, 0), (1, 0), (2, 0), (3, 0), (4, 
 
 #[derive(Clone, Copy)]
 pub enum LightSide {
-    None,
     Left,
     Right,
-    All,
 }
 
 pub fn get_lights_from_side(side: impl Into<LightSide>) -> Vec<(u8, u8)> {
     match side.into() {
-        LightSide::None => vec![],
         LightSide::Left => LIGHTS_POS[..7].to_vec(),
         LightSide::Right => LIGHTS_POS[7..].to_vec(),
-        LightSide::All => LIGHTS_POS.to_vec(),
     }
 }
 
@@ -30,14 +26,14 @@ pub struct FadingLight {
 impl FadingLight {
     pub fn get_judgement_color(judgement: JudgementChange) -> (u8, u8, u8) {
         match judgement {
-            JudgementChange::Great => (127, 127, 255),
-            JudgementChange::Good => (0, 255, 0),
-            JudgementChange::Meh => (255, 255, 0),
-            JudgementChange::Miss => (255, 0, 0),
+            JudgementChange::Great => (80, 80, 120),
+            JudgementChange::Good => (0, 200, 0),
+            JudgementChange::Meh => (150, 150, 0),
+            JudgementChange::Miss => (200, 0, 0),
             _ => (0, 0, 0),
         }
     }
-    
+
     pub fn new(side: LightSide, color: (u8, u8, u8), fade_rate: f32) -> Self {
         FadingLight {
             side,

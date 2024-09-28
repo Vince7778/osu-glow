@@ -16,38 +16,34 @@ pub enum JudgementChange {
     Reset, // if judgements decrease
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct JudgementState {
     great: usize,
     good: usize,
     meh: usize,
     miss: usize,
-}
-
-impl Default for JudgementState {
-    fn default() -> Self {
-        JudgementState {
-            great: 0,
-            good: 0,
-            meh: 0,
-            miss: 0,
-        }
-    }
+    combo: usize,
 }
 
 impl JudgementState {
+    // replace with new state and check what changed
     pub fn replace_with(&mut self, other: JudgementState) -> JudgementChange {
         let result: JudgementChange;
         if other.great < self.great || other.good < self.good || other.meh < self.meh || other.miss < self.miss {
+            // judgements decreased, reset lights
             result = JudgementChange::Reset;
-        } else if other.great > self.great {
-            result = JudgementChange::Great;
-        } else if other.good > self.good {
-            result = JudgementChange::Good;
+        } else if other.miss > self.miss {
+            // prioritize judgements worst to best
+            result = JudgementChange::Miss;
         } else if other.meh > self.meh {
             result = JudgementChange::Meh;
-        } else if other.miss > self.miss {
-            result = JudgementChange::Miss;
+        } else if other.good > self.good {
+            result = JudgementChange::Good;
+        } else if other.great > self.great {
+            result = JudgementChange::Great;
+        } else if other.combo != self.combo {
+            // probably a slider
+            result = JudgementChange::Great;
         } else {
             result = JudgementChange::None;
         }
@@ -56,6 +52,7 @@ impl JudgementState {
     }
 }
 
+// convert gosumemory's websocket message to JudgementState
 pub async fn parse_state(msg: Message) -> Result<Option<JudgementState>> {
     use tokio_tungstenite::tungstenite::Message::*;
     let text = match msg {
@@ -66,13 +63,17 @@ pub async fn parse_state(msg: Message) -> Result<Option<JudgementState>> {
     };
 
     let value: Value = serde_json::from_str(&text)?;
-    let hits = value.get("gameplay").and_then(|v| v.get("hits")).ok_or(anyhow!("No hits in websocket message"))?;
+    let gameplay = value.get("gameplay").ok_or(anyhow!("No gameplay in websocket message"))?;
+    let hits = gameplay.get("hits").ok_or(anyhow!("No hits in websocket message"))?;
     let great = hits.get("300").and_then(|v| v.as_u64()).ok_or(anyhow!("No 300s in websocket message"))? as usize;
     let good = hits.get("100").and_then(|v| v.as_u64()).ok_or(anyhow!("No 100s in websocket message"))? as usize;
     let meh = hits.get("50").and_then(|v| v.as_u64()).ok_or(anyhow!("No 50s in websocket message"))? as usize;
     let miss = hits.get("0").and_then(|v| v.as_u64()).ok_or(anyhow!("No misses in websocket message"))? as usize;
+
+    let combo = gameplay.get("combo").and_then(|v| v.get("current").and_then(|v| v.as_u64())).ok_or(anyhow!("No combo in websocket message"))? as usize;
+
     Ok(Some(JudgementState {
-        great, good, meh, miss,
+        great, good, meh, miss, combo
     }))
 }
 
