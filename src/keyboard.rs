@@ -1,7 +1,7 @@
 use wooting_analog_wrapper::ffi::wooting_analog_read_analog;
 use wooting_rgb::RgbKeyboard;
 
-use crate::lights::{get_lights_from_side, FadingLight, LightSide};
+use crate::{lights::{get_lights_from_side, FadingLight, LightSide}, ws::JudgementChange};
 
 const PRESS_THRESHOLD: f32 = 0.1;
 
@@ -40,8 +40,8 @@ impl Keyboard {
             keys_pressed: (false, false),
             last_pressed: PressedKey::None,
             lights: (
-                FadingLight::new(LightSide::Left, (255, 0, 0), 20.0),
-                FadingLight::new(LightSide::Right, (0, 0, 255), 20.0),
+                FadingLight::new(LightSide::Left, (0, 0, 0), 20.0),
+                FadingLight::new(LightSide::Right, (0, 0, 0), 20.0),
             ),
         })
     }
@@ -56,12 +56,41 @@ impl Keyboard {
         }
     }
 
+    pub fn read(&mut self, judgement: JudgementChange) {
+        self.check_presses();
+        let color = FadingLight::get_judgement_color(judgement);
+        match judgement {
+            JudgementChange::None => (),
+            JudgementChange::Reset => {
+                self.lights.0.set_color(color);
+                self.lights.1.set_color(color);
+            }
+            JudgementChange::Miss => {
+                self.lights.0.set_color(color);
+                self.lights.1.set_color(color);
+                self.lights.0.reset();
+                self.lights.1.reset();
+            }
+            _ => {
+                let light = match self.last_pressed {
+                    PressedKey::Left => &mut self.lights.0,
+                    PressedKey::Right => &mut self.lights.1,
+                    PressedKey::None => return,
+                };
+                light.set_color(color);
+            }
+        }
+    }
+
     pub fn update(&mut self) {
+        if self.keys_pressed.0 {
+            self.lights.0.reset();
+        }
+        if self.keys_pressed.1 {
+            self.lights.1.reset();
+        }
         self.lights.0.update();
         self.lights.1.update();
-        self.check_presses();
-
-        // need to clone because you can't borrow self twice
         self.write_light(self.lights.0.clone());
         self.write_light(self.lights.1.clone());
 
@@ -80,16 +109,10 @@ impl Keyboard {
         if left_pressed && !self.keys_pressed.0 {
             self.last_pressed = PressedKey::Left;
         }
-        if left_pressed {
-            self.lights.0.reset();
-        }
         self.keys_pressed.0 = left_pressed;
 
         if right_pressed && !self.keys_pressed.1 {
             self.last_pressed = PressedKey::Right;
-        }
-        if right_pressed {
-            self.lights.1.reset();
         }
         self.keys_pressed.1 = right_pressed;
     }

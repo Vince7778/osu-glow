@@ -1,3 +1,5 @@
+use crate::ws::JudgementChange;
+
 const LIGHTS_POS: [(u8, u8); 14] = [(0, 2), (0, 0), (1, 0), (2, 0), (3, 0), (4, 1), (4, 2), (0, 4), (0, 6), (1, 6), (2, 6), (3, 6), (4, 5), (4, 4)];
 
 #[derive(Clone, Copy)]
@@ -26,6 +28,16 @@ pub struct FadingLight {
 }
 
 impl FadingLight {
+    pub fn get_judgement_color(judgement: JudgementChange) -> (u8, u8, u8) {
+        match judgement {
+            JudgementChange::Great => (127, 127, 255),
+            JudgementChange::Good => (0, 255, 0),
+            JudgementChange::Meh => (255, 255, 0),
+            JudgementChange::Miss => (255, 0, 0),
+            _ => (0, 0, 0),
+        }
+    }
+    
     pub fn new(side: LightSide, color: (u8, u8, u8), fade_rate: f32) -> Self {
         FadingLight {
             side,

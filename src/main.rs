@@ -8,20 +8,20 @@ use anyhow::Result;
 use keyboard::Keyboard;
 use tokio::{select, signal, time};
 use wooting_rgb::is_wooting_keyboard_connected;
-use ws::OsuWebsocket;
+use ws::JudgementState;
 
 struct AppState {
     keyboard: Keyboard,
     counter: u8,
-    ws: OsuWebsocket,
+    judgements: JudgementState,
 }
 
 impl AppState {
-    fn new(ws: OsuWebsocket) -> Result<Self> {
+    fn new() -> Result<Self> {
         Ok(AppState {
             keyboard: Keyboard::new()?,
             counter: 0,
-            ws,
+            judgements: JudgementState::default(),
         })
     }
 }
@@ -44,20 +44,28 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    let ws = OsuWebsocket::connect()?;
-    let mut state = AppState::new(ws)?;
+    let mut ws_rx = ws::connect().await?;
+    let mut state = AppState::new()?;
 
-    let mut interval = time::interval(Duration::from_millis(10));
     let mut signal = signal::windows::ctrl_c()?;
 
     loop {
         select! {
+            msg = ws_rx.recv() => {
+                if let Some(msg) = msg {
+                    if let Some(judgements) = ws::parse_state(msg).await? {
+                        let change = state.judgements.replace_with(judgements);
+                        state.keyboard.read(change);
+                    }
+                    update(&mut state).await;
+                } else {
+                    println!("Websocket closed, exiting!");
+                    break;
+                }
+            }
             _ = signal.recv() => {
                 println!("Received Ctrl-C, exiting!");
                 break;
-            }
-            _ = interval.tick() => {
-                update(&mut state).await;
             }
         }
     }
